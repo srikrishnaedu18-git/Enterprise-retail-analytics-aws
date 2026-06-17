@@ -1,0 +1,39 @@
+# Python
+
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Jupyter
+
+.ipynb_checkpoints/
+
+# Environment Variables
+
+.env
+
+# AWS Credentials
+
+.aws/
+credentials
+config
+
+# VS Code
+
+.vscode/
+
+# Mac
+
+.DS_Store
+
+# Logs
+
+*.log
+
+# Temporary Files
+
+*.tmp
