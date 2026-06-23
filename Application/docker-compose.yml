@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Enterprise Retail Analytics — Docker Compose Orchestration
+# Deploys on an Amazon EC2 Linux instance with bridge networking.
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  # ── FastAPI Backend ───────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: retail-backend
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=${DB_HOST:-your-rds-endpoint.amazonaws.com}
+      - DB_USER=${DB_USER:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - DB_NAME=${DB_NAME:-retail_analytics}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DRIVER=${DB_DRIVER:-mysql+pymysql}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - retail-network
+
+  # ── React Frontend ───────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: retail-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - retail-network
+
+networks:
+  retail-network:
+    driver: bridge
