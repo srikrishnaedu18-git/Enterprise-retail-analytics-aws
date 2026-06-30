@@ -1,5 +1,5 @@
-FROM python:3.12-slim
-
+# ⬇️ CHANGED: Pulling from the official AWS ECR Public mirror instead of Docker Hub
+FROM public.ecr.aws/docker/library/python:3.12-slim
 WORKDIR /app
 
 # Install system dependencies + libpq-dev to handle postgres binary fallbacks securely
