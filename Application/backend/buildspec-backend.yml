@@ -11,9 +11,9 @@ phases:
   build:
     commands:
       - echo Build started on `date`
-      - echo Building the Docker image...
-      # ⬇️ FIX: Capitalized "Application"
-      - cd Application/backend && docker build -t $REPOSITORY_URI:latest .
+      - echo Building the Docker image explicitly from the root directory context...
+      # Standardized build path mapping to eliminate case sensitivity hopping issues
+      - docker build -f Application/backend/Dockerfile -t $REPOSITORY_URI:latest Application/backend
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
@@ -22,9 +22,9 @@ phases:
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo Writing image definitions file for ECS...
-      # ⬇️ FIX: Go back up two levels to the root from Application/backend
-      - cd ../..
+      # Spits out the configuration file right in the repository root where CodePipeline expects it
       - printf '[{"name":"backend","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
 
 artifacts:
-  files: imagedefinitions.json
+  files:
+    - imagedefinitions.json
