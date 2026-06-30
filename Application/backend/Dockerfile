@@ -1,10 +1,10 @@
-# ⬇️ CHANGED: Pulling from the official AWS ECR Public mirror instead of Docker Hub
 FROM public.ecr.aws/docker/library/python:3.12-slim
+
 WORKDIR /app
 
-# Install system dependencies + libpq-dev to handle postgres binary fallbacks securely
+# Install system dependencies + development headers + C standard libraries
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libffi-dev libpq-dev && \
+    apt-get install -y --no-install-recommends gcc libc-dev libffi-dev libpq-dev && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
