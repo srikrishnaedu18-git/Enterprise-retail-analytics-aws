@@ -12,8 +12,8 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      # ⬇️ CHANGED: Pointing to the correct relative path from the repository root
-      - cd application/backend && docker build -t $REPOSITORY_URI:latest .
+      # ⬇️ FIX: Capitalized "Application"
+      - cd Application/backend && docker build -t $REPOSITORY_URI:latest .
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
@@ -22,7 +22,7 @@ phases:
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo Writing image definitions file for ECS...
-      # ⬇️ CHANGED: Moving back up to the repository root so CodePipeline can find this handoff artifact easily
+      # ⬇️ FIX: Go back up two levels to the root from Application/backend
       - cd ../..
       - printf '[{"name":"backend","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
 
