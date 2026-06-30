@@ -85,6 +85,16 @@ class Transaction(Base):
 
 
 # ---------------------------------------------------------------------------
+# FastAPI application
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="Retail Transaction Service",
+    version="1.0.0",
+    description="Accepts and serves retail point-of-sale transactions.",
+)
+
+# ---------------------------------------------------------------------------
 # Startup database readiness helpers
 # ---------------------------------------------------------------------------
 
@@ -161,16 +171,6 @@ class TransactionResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-
-# ---------------------------------------------------------------------------
-# FastAPI application
-# ---------------------------------------------------------------------------
-
-app = FastAPI(
-    title="Retail Transaction Service",
-    version="1.0.0",
-    description="Accepts and serves retail point-of-sale transactions.",
-)
 
 # CORS — allow all origins so the React SPA on port 3000 (or any IP) can talk
 # to this backend running on port 8000.
