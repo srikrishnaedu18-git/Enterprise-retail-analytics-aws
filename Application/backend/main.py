@@ -6,10 +6,12 @@ point-of-sale transactions against an Amazon RDS instance.
 """
 
 import os
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
 
+import psycopg2
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -82,8 +84,40 @@ class Transaction(Base):
     )
 
 
-# Create the table(s) on startup if they don't already exist
-Base.metadata.create_all(bind=engine)
+# ---------------------------------------------------------------------------
+# Startup database readiness helpers
+# ---------------------------------------------------------------------------
+
+def wait_for_db(host, user, password, dbname, port, retries=5, delay=3):
+    """Gracefully wait for PostgreSQL to accept connections before continuing."""
+    for attempt in range(1, retries + 1):
+        try:
+            conn = psycopg2.connect(
+                host=host,
+                user=user,
+                password=password,
+                dbname=dbname,
+                port=port,
+            )
+            conn.close()
+            return True
+        except psycopg2.OperationalError as exc:
+            print(f"Database connection attempt {attempt} failed: {exc}")
+            if attempt < retries:
+                print(f"Retrying in {delay}s...")
+                time.sleep(delay)
+    return False
+
+
+@app.on_event("startup")
+def startup_event():
+    """Wait for the configured database to become reachable and initialize tables."""
+    if DB_HOST and DB_HOST != "your-rds-endpoint.amazonaws.com":
+        if not wait_for_db(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, int(DB_PORT)):
+            raise RuntimeError("Could not connect to the database after multiple retries.")
+
+    Base.metadata.create_all(bind=engine)
+
 
 # ---------------------------------------------------------------------------
 # Pydantic schemas for request / response validation
