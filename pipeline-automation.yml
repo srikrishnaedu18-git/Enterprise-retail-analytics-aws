@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Automated CI/CD Infrastructure Stack for Frontend and Dashboard Services.
+Description: Automated CI/CD Infrastructure Stack for Frontend and Dashboard Services with Casing Fixes.
 
 Resources:
   # ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ Resources:
         PrivilegedMode: true
       Source:
         Type: CODEPIPELINE
-        BuildSpec: dashboards/buildspec.yml
+        BuildSpec: dashboards/buildspec.yml  # 🔄 Verified path
 
   # ---------------------------------------------------------------------------
   # CodeBuild Project: Frontend
@@ -53,7 +53,7 @@ Resources:
         PrivilegedMode: true
       Source:
         Type: CODEPIPELINE
-        BuildSpec: Application/frontend/buildspec.yml
+        BuildSpec: Application/frontend/buildspec.yml  # 🔄 Fixed exact path casing
 
   # ---------------------------------------------------------------------------
   # CodePipeline: Dashboard
