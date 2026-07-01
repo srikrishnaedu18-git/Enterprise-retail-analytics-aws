@@ -4,18 +4,18 @@ phases:
     commands:
       - echo Logging into ECR...
       - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 373949235638.dkr.ecr.us-east-1.amazonaws.com
-      - REPOSITORY_URI=373949235638.dkr.ecr.us-east-1.amazonaws.com/retail-frontend
+      - REPOSITORY_URI=373949235638.dkr.ecr.us-east-1.amazonaws.com/retail-dashboard
       - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:~0:7}
   build:
     commands:
-      - echo Building Frontend Docker image...
-      - docker build -f Application/frontend/Dockerfile -t $REPOSITORY_URI:latest Application/frontend
+      - echo Building Dashboard Docker image...
+      - docker build -f dashboards/Dockerfile -t $REPOSITORY_URI:latest dashboards
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
   post_build:
     commands:
       - echo Pushing images...
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - printf '[{"name":"frontend","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - printf '[{"name":"dashboard","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
 artifacts:
   files: imagedefinitions.json
