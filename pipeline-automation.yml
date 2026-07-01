@@ -1,21 +1,30 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Automated CICD Infrastructure for Frontend and Dashboard Services.
-
-Parameters:
-  GitHubRepo:
-    Type: String
-    Default: "Enterprise-retail-analytics-aws"
-  GitHubBranch:
-    Type: String
-    Default: "main"
+Description: Automated CI/CD Infrastructure Stack for Frontend and Dashboard Services.
 
 Resources:
-  # Automated CodeBuild Project for Dashboard
+  # ---------------------------------------------------------------------------
+  # S3 Bucket for Pipeline Artifacts
+  # ---------------------------------------------------------------------------
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub retail-pipeline-artifacts-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # ---------------------------------------------------------------------------
+  # CodeBuild Project: Dashboard
+  # ---------------------------------------------------------------------------
   DashboardBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: retail-dashboard-builder
-      ServiceRole: !GetAtt PipelineRole.Arn
+      ServiceRole: !GetAtt PipelineServiceRole.Arn
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -27,12 +36,14 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: dashboards/buildspec.yml
 
-  # Automated CodeBuild Project for Frontend
+  # ---------------------------------------------------------------------------
+  # CodeBuild Project: Frontend
+  # ---------------------------------------------------------------------------
   FrontendBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
       Name: retail-frontend-builder
-      ServiceRole: !GetAtt PipelineRole.Arn
+      ServiceRole: !GetAtt PipelineServiceRole.Arn
       Artifacts:
         Type: CODEPIPELINE
       Environment:
@@ -44,16 +55,129 @@ Resources:
         Type: CODEPIPELINE
         BuildSpec: Application/frontend/buildspec.yml
 
-  # Unified IAM Service Role that grants Admin/PowerUser tokens automatically
-  PipelineRole:
+  # ---------------------------------------------------------------------------
+  # CodePipeline: Dashboard
+  # ---------------------------------------------------------------------------
+  DashboardPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: retail-dashboard-pipeline
+      RoleArn: !GetAtt PipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: "arn:aws:codeconnections:us-east-1:373949235638:connection/104f1e00-be1a-4ed7-a4fe-e9a3f57c42a1"
+                FullRepositoryId: "srikrishnaedu18-git/Enterprise-retail-analytics-aws"
+                BranchName: "main"
+              OutputArtifacts:
+                - Name: SourceArtifact
+        - Name: Build
+          Actions:
+            - Name: CodeBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref DashboardBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+        - Name: Deploy
+          Actions:
+            - Name: ECSDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: '1'
+              Configuration:
+                ClusterName: "retail-platform-cluster-1"
+                ServiceName: "retail-dashboard-service"
+                FileName: "imagedefinitions.json"
+              InputArtifacts:
+                - Name: BuildArtifact
+
+  # ---------------------------------------------------------------------------
+  # CodePipeline: Frontend
+  # ---------------------------------------------------------------------------
+  FrontendPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: retail-frontend-pipeline
+      RoleArn: !GetAtt PipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: '1'
+              Configuration:
+                ConnectionArn: "arn:aws:codeconnections:us-east-1:373949235638:connection/104f1e00-be1a-4ed7-a4fe-e9a3f57c42a1"
+                FullRepositoryId: "srikrishnaedu18-git/Enterprise-retail-analytics-aws"
+                BranchName: "main"
+              OutputArtifacts:
+                - Name: SourceArtifact
+        - Name: Build
+          Actions:
+            - Name: CodeBuild
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref FrontendBuildProject
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+        - Name: Deploy
+          Actions:
+            - Name: ECSDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: '1'
+              Configuration:
+                ClusterName: "retail-platform-cluster-1"
+                ServiceName: "retail-frontend-service"
+                FileName: "imagedefinitions.json"
+              InputArtifacts:
+                - Name: BuildArtifact
+
+  # ---------------------------------------------------------------------------
+  # IAM Automated Service Role
+  # ---------------------------------------------------------------------------
+  PipelineServiceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: retail-automated-pipeline-service-role
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service: 
+              Service:
                 - codebuild.amazonaws.com
                 - codepipeline.amazonaws.com
             Action: sts:AssumeRole
@@ -62,3 +186,4 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/AWSCodeBuildAdminAccess
         - arn:aws:iam::aws:policy/AmazonECS_FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
