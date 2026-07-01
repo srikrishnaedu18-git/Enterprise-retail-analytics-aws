@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import psycopg2
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Depends  # 🔌 Added Depends here
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import (
@@ -27,14 +27,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 # ---------------------------------------------------------------------------
-# Database configuration — all values sourced from environment variables
+# Database configuration — FIX: Sourced cleanly for PostgreSQL
 # ---------------------------------------------------------------------------
 DB_HOST = os.environ.get("DB_HOST", "")
-DB_USER = os.environ.get("DB_USER", "root")
+DB_USER = os.environ.get("DB_USER", "postgres")        # 🔄 Changed fallback default to postgres
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
 DB_NAME = os.environ.get("DB_NAME", "retail_analytics")
-DB_PORT = os.environ.get("DB_PORT", "3306")
-DB_DRIVER = os.environ.get("DB_DRIVER", "mysql+pymysql")
+DB_PORT = os.environ.get("DB_PORT", "5432")            # 🔄 Changed default port to 5432
+DB_DRIVER = os.environ.get("DB_DRIVER", "postgresql+psycopg2") # 🔄 Changed driver to postgresql+psycopg2
 
 # Local dev: fall back to SQLite when no DB_HOST is configured
 if DB_HOST and DB_HOST != "your-rds-endpoint.amazonaws.com":
@@ -108,6 +108,7 @@ def wait_for_db(host, user, password, dbname, port, retries=5, delay=3):
                 password=password,
                 dbname=dbname,
                 port=port,
+                connect_timeout=3, # ⏱️ Avoid hanging forever if the network firewall blocks us
             )
             conn.close()
             return True
@@ -193,7 +194,7 @@ def get_db():
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Endpoints — FIX: Using the session dependency injections natively
 # ---------------------------------------------------------------------------
 
 @app.get("/health", tags=["ops"])
@@ -208,9 +209,8 @@ def health_check():
     status_code=status.HTTP_201_CREATED,
     tags=["transactions"],
 )
-def create_transaction(payload: TransactionCreate):
+def create_transaction(payload: TransactionCreate, db: Session = Depends(get_db)):
     """Validate, persist, and return a new transaction record."""
-    db: Session = SessionLocal()
     try:
         row = Transaction(
             transaction_id=payload.transaction_id,
@@ -231,8 +231,6 @@ def create_transaction(payload: TransactionCreate):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to commit transaction: {exc}",
         )
-    finally:
-        db.close()
 
 
 @app.get(
@@ -240,19 +238,15 @@ def create_transaction(payload: TransactionCreate):
     response_model=List[TransactionResponse],
     tags=["transactions"],
 )
-def list_transactions():
+def list_transactions(db: Session = Depends(get_db)):
     """Return the latest 50 transactions ordered by date descending."""
-    db: Session = SessionLocal()
-    try:
-        rows = (
-            db.query(Transaction)
-            .order_by(desc(Transaction.date))
-            .limit(50)
-            .all()
-        )
-        return rows
-    finally:
-        db.close()
+    rows = (
+        db.query(Transaction)
+        .order_by(desc(Transaction.date))
+        .limit(50)
+        .all()
+    )
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +254,6 @@ def list_transactions():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # pyrefly: ignore [missing-import]
     import uvicorn
 
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
